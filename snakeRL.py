@@ -15,7 +15,7 @@ EPSILON = 1.0
 EPSILON_DECAY = 0.995
 EPSILON_MIN = 0.05
 
-RENDER_EVERY = 10000  # render every N episodes
+RENDER_EVERY = 100  # render every N episodes
 
 # ================== GAME ==================
 class Snake:
@@ -184,6 +184,19 @@ class DQN:
         self.W1 -= LR * dW1
         self.b1 -= LR * db1
 
+    def save(self, filename="snake_model.npz"):
+        np.savez(filename,
+            W1=self.W1, b1=self.b1,
+            W2=self.W2, b2=self.b2
+        )
+
+    def load(self, filename="snake_model.npz"):
+        data = np.load(filename)
+        self.W1 = data["W1"]
+        self.b1 = data["b1"]
+        self.W2 = data["W2"]
+        self.b2 = data["b2"]
+
 
 # ================== TRAIN ==================
 pygame.init()
@@ -192,6 +205,15 @@ clock = pygame.time.Clock()
 
 game = SnakeGame()
 model = DQN()
+
+if input("Load existing model? (y/n)").lower() == "y":
+    try:
+        model.load()
+        print("Model loaded!")
+        if input("Train or test?").lower() == "test":
+            epsilon, EPSILON_MIN = 0, 0
+    except:
+        print("No saved model found, starting fresh.")
 
 epsilon = EPSILON
 
@@ -208,6 +230,8 @@ while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
+                if input("Overwrite existing model? (y/n)").lower() == "y":
+                    model.save()
                 exit()
         keys = pygame.key.get_pressed()
 
@@ -249,7 +273,7 @@ while True:
 
     epsilon = max(EPSILON_MIN, epsilon * EPSILON_DECAY)
 
-    if episode % 50 == 0:
+    if episode % RENDER_EVERY == 0:
         print(f"Episode {episode}, Score: {len(game.snake.pos)}, Reward: {total_reward:.2f}")
     
     episode += 1
