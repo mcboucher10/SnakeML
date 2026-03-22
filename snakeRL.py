@@ -206,21 +206,23 @@ clock = pygame.time.Clock()
 game = SnakeGame()
 model = DQN()
 
+epsilon = EPSILON
+
 if input("Load existing model? (y/n)").lower() == "y":
     try:
         model.load()
         print("Model loaded!")
         if input("Train or test?").lower() == "test":
             epsilon, EPSILON_MIN = 0, 0
+            MAX_STEPS = 100000
     except:
         print("No saved model found, starting fresh.")
-
-epsilon = EPSILON
 
 episode = 0
 tickspeed = 15
 
 while True:
+    reward_over_section = 0
     state = game.reset()
     total_reward = 0
 
