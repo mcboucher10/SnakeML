@@ -1,10 +1,11 @@
 import pygame
 import random
 import numpy as np
+import matplotlib.pyplot as plt
 
 # ================== CONFIG ==================
 WINDOW_SIZE = 600
-BOARD_SIZE = 15
+BOARD_SIZE = 10
 SQUARE = WINDOW_SIZE // BOARD_SIZE
 
 MAX_STEPS = 500
@@ -15,7 +16,8 @@ EPSILON = 1.0
 EPSILON_DECAY = 0.995
 EPSILON_MIN = 0.05
 
-RENDER_EVERY = 100  # render every N episodes
+TRAIN = True
+RENDER_EVERY = 100 
 
 # ================== GAME ==================
 class Snake:
@@ -33,7 +35,6 @@ class Snake:
         nr = self.row + self.dir[0]
         nc = self.col + self.dir[1]
 
-        # collision
         if nr < 0 or nc < 0 or nr >= BOARD_SIZE or nc >= BOARD_SIZE:
             return False
         if (nr, nc) in self.pos:
@@ -128,7 +129,7 @@ class SnakeGame:
 
         return np.array(state, dtype=float)
 
-    def render(self, screen, episode):
+    def render(self, screen, episode, score):
         screen.fill((0,180,0))
 
         for r in range(BOARD_SIZE):
@@ -147,6 +148,8 @@ class SnakeGame:
         font = pygame.font.SysFont("Arial", 24)
         text = font.render(f"Episode: {episode}", True, (255,255,255))
         screen.blit(text, (10, 10))
+        text = font.render(f"Score: {score}", True, (255,255,255))
+        screen.blit(text, (WINDOW_SIZE-100,10))
 
         pygame.display.flip()
 
@@ -208,13 +211,22 @@ model = DQN()
 
 epsilon = EPSILON
 
+# graph setup
+scores = []
+avg_scores = []
+
+plt.ion()
+fig, ax = plt.subplots()
+
 if input("Load existing model? (y/n)").lower() == "y":
     try:
         model.load()
         print("Model loaded!")
         if input("Train or test?").lower() == "test":
+            TRAIN = False
             epsilon, EPSILON_MIN = 0, 0
             MAX_STEPS = 100000
+            RENDER_EVERY = 1
     except:
         print("No saved model found, starting fresh.")
 
@@ -222,19 +234,18 @@ episode = 0
 tickspeed = 15
 
 while True:
-    reward_over_section = 0
     state = game.reset()
     total_reward = 0
 
     for step in range(MAX_STEPS):
 
-        # handle quit
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 if input("Overwrite existing model? (y/n)").lower() == "y":
                     model.save()
                 exit()
+
         keys = pygame.key.get_pressed()
 
         if keys[pygame.K_RIGHT]:
@@ -244,7 +255,6 @@ while True:
         else:
             tickspeed = 20
 
-        # choose action
         if random.random() < epsilon:
             action = random.randint(0,2)
         else:
@@ -253,21 +263,20 @@ while True:
 
         next_state, reward, done = game.step(action)
 
-        # Q-learning target
         target = model.forward(state)
         if done:
             target[action] = reward
         else:
             target[action] = reward + GAMMA * np.max(model.forward(next_state))
 
-        model.train(state, target)
+        if TRAIN:
+            model.train(state, target)
 
         state = next_state
         total_reward += reward
 
-        # render occasionally
         if episode % RENDER_EVERY == 0:
-            game.render(screen, episode)
+            game.render(screen, episode, len(game.snake.pos))
             clock.tick(tickspeed)
 
         if done:
@@ -275,7 +284,23 @@ while True:
 
     epsilon = max(EPSILON_MIN, epsilon * EPSILON_DECAY)
 
-    if episode % RENDER_EVERY == 0:
-        print(f"Episode {episode}, Score: {len(game.snake.pos)}, Reward: {total_reward:.2f}")
-    
+    # track score
+    score = len(game.snake.pos)
+    scores.append(score)
+
+    # update graph
+    if episode % RENDER_EVERY == 0 and episode > 0:
+        avg_score = np.mean(scores[-RENDER_EVERY:])
+        avg_scores.append(avg_score)
+
+        print(f"Episode {episode}, Avg Score: {avg_score:.2f}, Reward: {total_reward:.2f}")
+
+        ax.clear()
+        ax.plot(avg_scores)
+        ax.set_title("Average Score per Section")
+        ax.set_xlabel(f"Sections (each = {RENDER_EVERY} episodes)")
+        ax.set_ylabel("Average Score")
+
+        plt.pause(0.01)
+
     episode += 1
