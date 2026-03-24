@@ -1,3 +1,16 @@
+"""Project: Snake RL
+
+Author		Mason Boucher
+Date		March 24, 2026
+
+Inspired by the Intro to AI course, this program trains a deep Q-learning model
+to play the classic snake game. Rather than using popular libraries to complete
+this, numpy and random are the only required ones for the model. Pygame and
+MatPlotLib are supplementary for visualization.
+
+Sources: 	https://medium.com/@samina.amin/deep-q-learning-dqn-71c109586bae
+"""
+
 import pygame
 import random
 import numpy as np
@@ -10,18 +23,39 @@ SQUARE = WINDOW_SIZE // BOARD_SIZE
 
 MAX_STEPS = 500
 
-LR = 0.001
-GAMMA = 0.9
-EPSILON = 1.0
+LR = 0.001 # learning rate
+GAMMA = 0.9 # prioritization of long term gains over immediate reward
+EPSILON = 1.0 # exploration factor (initial)
 EPSILON_DECAY = 0.995
-EPSILON_MIN = 0.05
+EPSILON_MIN = 0.05 # note that this is set to 0 when testing
 
 TRAIN = True
-RENDER_EVERY = 100 
+RENDER_EVERY = 100 # how often the pygame interface is run
 
 # ================== GAME ==================
 class Snake:
+    """Represents the snake.
+
+    Attributes:
+        row (int): 0-indexed row (from top edge)
+        col (int): 0-indexed column (from left edge)
+        length (int): number of grid spaces the snake occupies
+        direction ((int, int)): relative square that the snake would occupy if
+        it moved one tick
+        pos ([(int,int)]): List of squares occupied by the snake, where the
+        head of the snake lies at the end of the list
+    """
     def __init__(self, row, col, length, direction):
+        """Initializes the snake with head at (row, col). Populates pos by
+        adding units to the inverse of the direction.
+
+        Args:
+            row (int): 0-indexed row (from top edge)
+            col (int): 0-indexed column (from left edge)
+            length (int): number of grid spaces the snake occupies
+            direction ((int, int)): relative square that the snake would occupy if
+            it moved one tick
+        """
         self.row = row
         self.col = col
         self.dir = direction
@@ -31,7 +65,13 @@ class Snake:
         for i in range(length):
             self.pos.insert(0, (row - direction[0]*i, col - direction[1]*i))
 
-    def update(self):
+    def update(self) -> bool:
+        """Moves the snake one step forward in its direction,. deleitng its
+        tail if it is not at the desired length.
+
+        Returns:
+            isValid (bool): Whether or not the snake survives after the move
+        """
         nr = self.row + self.dir[0]
         nc = self.col + self.dir[1]
 
@@ -50,21 +90,41 @@ class Snake:
 
 
 class SnakeGame:
+    """Represents the game.
+
+    Attributes:
+        snake (Snake instance): The snake on the board
+        apple ((int, int)): Location of the apple
+    """
     def __init__(self):
+        """Calls the reset method to set up the game.
+        """
         self.reset()
 
     def reset(self):
+        """Resets the board to original state.
+
+        Returns:
+            state ([int]): state of the starting board
+        """
         self.snake = Snake(BOARD_SIZE//2, 4, 4, (0,1))
         self.spawn_apple()
         return self.get_state()
 
     def spawn_apple(self):
+        """Spawns a new apple in a free square.
+        """
         free = [(r,c) for r in range(BOARD_SIZE)
                         for c in range(BOARD_SIZE)
                         if (r,c) not in self.snake.pos]
         self.apple = random.choice(free)
 
     def apply_action(self, action):
+        """Changes the snakes direction according to the action parameter.
+
+        Attributes:
+            action (int): index of action among {straight, left, right}
+        """
         dirs = [(0,1),(1,0),(0,-1),(-1,0)]
         idx = dirs.index(self.snake.dir)
 
